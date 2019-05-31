@@ -1,0 +1,141 @@
+# Program to automate the naming and transferring of .pcl scan files into our archive.
+# Also sends a timestamp to the order document folder so office staff can easily track progress
+
+import os
+import shutil
+import glob
+import time
+import datetime
+
+src  = r"C:\Users\Desktop\scans to transfer"  #Enter source folder where scans will be here
+dest = r"Z:\CompanyName\SCANS DONE 2019"    #Enter destination for scans here
+daycount1 = 0
+dest1 = "O:\\{0}\\{1}\\{2}\\{3}" #Destination of order document folder, {year}, {month}, {day}, {order number}
+
+# Below is a function to move all the files in the src directory to the dest directory
+
+def MoveFile():
+    src_files = os.listdir(src)
+    for file_name in src_files:
+        full_file_name = os.path.join(src, file_name)
+        if (os.path.isfile(full_file_name)):
+            shutil.move(full_file_name, dest)
+
+# Function to rename all .pcl's and .bmp's to the Order Number, 
+# will typically be L.pcl,L.bmp, R.pcl, R.bmp. Modified to include the ordernumber before the L or R
+
+
+def Rename():
+    for f in glob.glob('*.pcl'):
+        new_filename = (ordernum) + f
+        os.rename(f,new_filename)
+    for f in glob.glob('*.bmp'):
+        new_filename = (ordernum) + f
+        os.rename(f,new_filename)
+
+# BcodeInput function;
+# Input: Bar-code from shop floor documentation
+# Output: Saves OrderNumber and Order document folder as variables
+
+def BcodeInput():
+    global lb
+    global ordernum
+    global dest2
+    lb = 1
+    while lb != 23 or 10:
+        print ('Scan the bar code')
+        barcode = input()
+        lb = len(barcode)
+        print ("Barcode Length is %s" %(lb))
+        if lb == 23 or 10:
+            if lb == 23:
+                ordernum = barcode[0:7]
+                orday= barcode[7:9]
+                ormnth= barcode[10:12]
+                oryr= ("20"+barcode[13:15])
+                reqdate=barcode[15:20]
+                dest2 = "O:\\%s\\%s\\%s\\%s" %(oryr, ormnth, orday, ordernum)
+                print (dest2)
+                break
+            elif lb == 10:
+                ordernum = barcode[1:8]
+                FindO()
+                break
+        else:
+            print ("Input not valid")
+            print ("Format should be NNNNNNNDD/MM/YYDD/MM/YY")
+            continue
+
+# Function to find Order document folder by first checking that days order document folder (year/month/day/ordernumber)
+# and working backward until path is real
+
+def FindO():
+    global dest2
+    global daycount
+    search = (ordernum)
+    pathreal = False
+    daycount = (daycount1)
+    while pathreal is False:
+        if daycount < 365:
+            dest2 = (dest1)
+            date = datetime.datetime.now() - datetime.timedelta(days = (daycount))
+            date = (date.strftime('%Y-%m-%d'))
+            date = str(date)
+            year = date[0:4]
+            month = date[5:7]
+            day = date [8:10]
+            month = str(month)
+            day = str(day)        
+            dest2 = dest2.format(year, month, day, search)
+            pathreal =(os.path.isdir(dest2))
+            if pathreal is True:
+                print (dest2)
+            daycount = daycount + 1
+            continue
+        else:
+            break
+    
+
+# Function to create a .txt file named 'Scanned@CAD' followed by the day, month and time.
+# This file is then transferred to the order document folder and is visible to office staff at a glance 
+
+def Timestamp():
+    os.chdir(src)
+    open("a.txt", "a")
+    now =time.strftime("%d_%m_%H%M")
+    file_name= 'Scanned@CAD_%s.txt'%(now)
+    os.rename('a.txt',file_name)
+    for file in glob.glob('*.txt'):
+        shutil.move(file, dest2)
+    os.chdir(mycwd)
+    
+
+mycwd = os.getcwd()
+answr = 'T'
+while answr != '':
+    print ('')
+    print ('')
+    print ('3D Scan Foam Impression or POP if needed, then Scan bar-code')
+    BcodeInput()
+    print (ordernum)
+    os.chdir(src)
+    
+    # Shows the contents of the 'src' folder so the user can check their scan is where it should be
+    
+    print (glob.glob('*.*'))
+    print ('If Files are Showing, Press Enter to transfer Files to Scans Done')
+    print ('If No Files are Showing, Press Enter to send TimeStamp')
+    input()
+    list = os.listdir(src)
+    number_files = len(list)
+    
+    # If there's no scan, then order is a repeat and the timestamp is sent
+    # If there are files in the 'src' folder then the files are renamed and transferred before the timestamp
+    
+    if number_files != 0:
+        Rename()
+        MoveFile()
+        Timestamp()
+    else:
+        Timestamp()
+          
